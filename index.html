@@ -136,7 +136,7 @@
     <div id="toast-container"></div>
     <div id="timer-drawer-container"></div>
 
-   <script>window.__WEB_CONFIG__={"apiKey":"AIzaSyASFf-e0Z536cDxKGVtQpoPD5wiACm2X78","authDomain":"gvbm-91096.firebaseapp.com","projectId":"gvbm-91096","storageBucket":"gvbm-91096.firebasestorage.app","messagingSenderId":"112284392779","appId":"1:112284392779:web:85f2aacbfab82eeb939cce"};window.__WEB_OWNER__="NqKF8RRVmBWXxPcAY9lzxunLdU32";</script><script>
+   <script>window.__WEB_CONFIG__={"apiKey":"AIzaSyASFf-e0Z536cDxKGVtQpoPD5wiACm2X78","authDomain":"gvbm-91096.firebaseapp.com","projectId":"gvbm-91096","storageBucket":"gvbm-91096.firebasestorage.app","messagingSenderId":"112284392779","appId":"1:112284392779:web:85f2aacbfab82eeb939cce"};window.__WEB_OWNER__="NqKF8RRVmBWXxPcAY9lzxunLdU32";window.__WEB_TEACHER_EMAIL__="ngthuong203@gmail.com";</script><script>
      let state = {
     currentTab: 'tong-quan',
     auth: { loggedIn: false, role: 'gvcn' }, 
@@ -480,8 +480,6 @@ function renderHeader() {
             if (state.auth && !state.auth.loggedIn) {
                 if (typeof webParentSlice !== 'undefined' && webParentSlice) {
                     app.innerHTML = renderWebParentCard() + `<div id="modal-container"></div>`;
-                } else if (typeof isWebMode === 'function' && isWebMode()) {
-                    app.innerHTML = renderWebLoginScreen() + `<div id="modal-container"></div>`;
                 } else {
                     app.innerHTML = renderLoginScreen() + `<div id="modal-container"></div>`;
                 }
@@ -6705,8 +6703,8 @@ window.parseExcelToDailySchedule = function(rows) {
                 showToast('Đăng nhập thất bại: ' + (err.message || err.code || ''), 'error');
             }
         };
-        window.webParentLookup = async function () {
-            var code = ((document.getElementById('web-parent-code') || {}).value || '').trim();
+        window.webParentLookup = async function (codeArg) {
+            var code = (codeArg || ((document.getElementById('web-parent-code') || {}).value || '')).trim();
             if (!code) return showToast('Phụ huynh nhập mã tra cứu (5 số) trước đã.', 'error');
             try {
                 await webInitFirebase();
@@ -6787,22 +6785,6 @@ window.parseExcelToDailySchedule = function(rows) {
             webMembersLoading = false;
             renderLayout();
         }
-        window.webCreateMember = async function () {
-            var email = ((document.getElementById('web-new-email') || {}).value || '').trim();
-            var pass = (document.getElementById('web-new-pass') || {}).value || '';
-            var role = (document.getElementById('web-new-role') || {}).value || '';
-            if (!email || !pass || (role !== 'bcs' && role !== 'bgh')) return showToast('Nhập đủ email, mật khẩu và chọn vai trò BCS hoặc BGH.', 'error');
-            try {
-                await webInitFirebase();
-                var cfg = webConfig();
-                var sec = window.firebase.initializeApp(cfg, 'web-admin-secondary');
-                var cred = await sec.auth().createUserWithEmailAndPassword(email, pass);
-                await webMemberRef(webDb(), webOwner(), cred.user.uid).set({ role: role, email: email, createdAt: Date.now() });
-                try { await sec.delete(); } catch (e) {}
-                showToast('Đã tạo tài khoản ' + role.toUpperCase() + ' cho ' + email + '.', 'success');
-                webRefreshMembers();
-            } catch (err) { showToast('Tạo tài khoản thất bại: ' + (err.message || err.code || ''), 'error'); }
-        };
         window.webRemoveMember = async function (uid, email) {
             if (!confirm('Xóa thành viên ' + email + ' khỏi lớp? Người này sẽ không vào được bản web nữa (tài khoản vẫn còn nhưng không còn quyền).')) return;
             try { await webMemberRef(webDb(), webOwner(), uid).delete(); showToast('Đã xóa thành viên.', 'success'); webRefreshMembers(); }
@@ -6839,7 +6821,7 @@ window.parseExcelToDailySchedule = function(rows) {
                 scripts.forEach(function (s) { if (!s.src && s.textContent.length > 100000) appScript = s; });
                 if (!appScript) return showToast('Không tìm thấy khối chương trình để gắn cấu hình.', 'error');
                 var inj = clone.createElement('script');
-                inj.textContent = 'window.__WEB_CONFIG__=' + JSON.stringify(cfg) + ';window.__WEB_OWNER__=' + JSON.stringify(user.uid) + ';';
+                inj.textContent = 'window.__WEB_CONFIG__=' + JSON.stringify(cfg) + ';window.__WEB_OWNER__=' + JSON.stringify(user.uid) + ';window.__WEB_TEACHER_EMAIL__=' + JSON.stringify(user.email || '') + ';';
                 appScript.parentNode.insertBefore(inj, appScript);
                 var blob = new Blob(['<!DOCTYPE html>\n' + clone.documentElement.outerHTML], { type: 'text/html;charset=utf-8' });
                 var url = URL.createObjectURL(blob);
@@ -6864,12 +6846,17 @@ window.parseExcelToDailySchedule = function(rows) {
                     '<h4 class="font-bold text-slate-800 mb-2">Quản trị bản web (chỉ GVCN)</h4>' +
                     '<p class="text-sm text-slate-600 mb-4">Trạng thái đồng bộ: <b>' + fbEscAttr(webLastPushText || 'Chưa đồng bộ lần nào.') + '</b> • BCS chỉ sửa được Học sinh, Điểm danh, Sơ đồ lớp, Thời khóa biểu (có nhật ký); BGH chỉ xem 6 mục, không sửa được; phụ huynh chỉ thấy con mình qua mã tra cứu.</p>' +
                     '<div class="space-y-2 mb-4">' + rows + '</div>' +
+                    '<p class="text-sm text-slate-600 mb-2">Tạo tài khoản vai trò: thành viên chỉ cần chọn tab vai trò + nhập mật khẩu này, không nhập email.</p>' +
                     '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">' +
-                    '<input id="web-new-email" type="email" placeholder="Email thành viên mới" class="px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm outline-none">' +
-                    '<input id="web-new-pass" type="password" placeholder="Mật khẩu (từ 6 ký tự)" class="px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm outline-none">' +
-                    '<select id="web-new-role" class="px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm outline-none"><option value="bcs">Ban cán sự (BCS)</option><option value="bgh">Ban giám hiệu (BGH)</option></select></div>' +
+                    '<select id="web-new-role" class="px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm outline-none"><option value="bcs">Ban cán sự (BCS)</option><option value="bgh">Ban giám hiệu (BGH)</option></select>' +
+                    '<input id="web-new-pass" type="password" placeholder="Mật khẩu vai trò (từ 6 ký tự)" class="px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm outline-none">' +
+                    '<button onclick="webCreateRoleAccount()" class="px-5 py-3 bg-violet-600 text-white font-black rounded-xl text-sm">Tạo tài khoản vai trò</button></div>' +
+                    '<div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">' +
+                    '<select id="web-pw-role" class="px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm outline-none"><option value="bcs">Ban cán sự (BCS)</option><option value="bgh">Ban giám hiệu (BGH)</option></select>' +
+                    '<input id="web-pw-old" type="password" placeholder="Mật khẩu cũ" class="px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm outline-none">' +
+                    '<input id="web-pw-new" type="password" placeholder="Mật khẩu mới (từ 6 ký tự)" class="px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm outline-none">' +
+                    '<button onclick="webChangeRolePassword()" class="px-5 py-3 bg-white border border-slate-300 text-slate-700 font-black rounded-xl text-sm">Đổi mật khẩu vai trò</button></div>' +
                     '<div class="flex flex-wrap gap-2 mb-4">' +
-                    '<button onclick="webCreateMember()" class="px-5 py-3 bg-violet-600 text-white font-black rounded-xl text-sm">Tạo tài khoản thành viên</button>' +
                     '<button onclick="webMigrate()" class="px-5 py-3 bg-amber-600 text-white font-black rounded-xl text-sm">Chuyển dữ liệu từ bản cũ sang bản web</button>' +
                     '<button onclick="webPush()" class="px-5 py-3 bg-sky-600 text-white font-black rounded-xl text-sm">Đồng bộ ngay</button></div>' +
                     '<label class="block text-xs font-bold text-slate-500 mb-1">QUY TẮC FIRESTORE CHO BẢN WEB (dán vào mục Rules rồi bấm Publish — thay rules cũ, vẫn giữ quyền cho bản Firebase cũ)</label>' +
@@ -6884,6 +6871,106 @@ window.parseExcelToDailySchedule = function(rows) {
             }
             return '';
         }
+        // Email quy uoc cho tai khoan vai tro (khong ai phai nhap mail nay).
+        function webRoleEmail(role, owner) { return role + '-' + owner + '@gvcn.web'; }
+        function webAuthErrMsg(err) {
+            var c = (err && err.code) || '';
+            if (c === 'auth/wrong-password' || c === 'auth/invalid-credential' || c === 'auth/invalid-login-credentials') return 'Mật khẩu không đúng.';
+            if (c === 'auth/user-not-found') return 'Vai trò này chưa được tạo tài khoản — cô nhờ GVCN tạo tài khoản vai trò.';
+            if (c === 'auth/too-many-requests') return 'Đăng nhập sai quá nhiều lần — cô thử lại sau ít phút.';
+            if (c === 'auth/network-request-failed') return 'Không có mạng — cô kiểm tra mạng rồi thử lại.';
+            return (err && err.message) || '';
+        }
+        // Dang nhap web bang tab vai tro + mat khau (giao dien giong ban local).
+        window.webRoleLogin = async function () {
+            var role = state.loginRoleSelect || 'gvcn';
+            var pass = (document.getElementById('login-password') || {}).value || '';
+            if (!pass) return showToast('Cô nhập mật khẩu trước đã.', 'error');
+            try {
+                await webInitFirebase();
+                var owner = webOwner();
+                if (!owner) throw new Error('File web này chưa gắn lớp nào — cô tạo bản web từ file của GVCN trước.');
+                var email;
+                if (role === 'gvcn') {
+                    email = window.__WEB_TEACHER_EMAIL__ || '';
+                    if (!email) throw new Error('Bản web này cũ — cô tạo lại bản web từ file mới rồi up lại.');
+                } else {
+                    email = webRoleEmail(role, owner);
+                }
+                var cred = await window.firebase.auth().signInWithEmailAndPassword(email, pass);
+                var uid = cred.user.uid;
+                var okRole = null;
+                if (role === 'gvcn') { if (uid === owner) okRole = 'gvcn'; }
+                else {
+                    var mdoc = await webMemberRef(webDb(), owner, uid).get();
+                    if (mdoc.exists && mdoc.data().role === role) okRole = role;
+                }
+                if (!okRole) {
+                    try { await window.firebase.auth().signOut(); } catch (e) {}
+                    return showToast('Tài khoản này không khớp với vai trò đã chọn — cô kiểm tra lại tab vai trò.', 'error');
+                }
+                webUser = cred.user; webRole = role; webOwnerUid = owner;
+                state.auth.loggedIn = true; state.auth.role = role; state.auth.webRole = role;
+                state.currentTab = role === 'gvcn' ? 'tong-quan' : WEB_NAV[role][0];
+                try {
+                    await webLoadState(owner);
+                } catch (loadErr) {
+                    if (role === 'gvcn' && /Chưa có dữ liệu lớp trên bản web/.test(loadErr.message || '')) {
+                        state.currentTab = 'cai-dat';
+                        renderLayout();
+                        showToast('Chưa có dữ liệu lớp trên bản web — cô bấm “Chuyển dữ liệu từ bản cũ” trong Cài đặt → Dữ liệu.', 'error');
+                        return;
+                    }
+                    throw loadErr;
+                }
+                showToast('Đăng nhập bản web thành công (' + (role === 'gvcn' ? 'GVCN' : role === 'bcs' ? 'BCS' : 'BGH') + ').', 'success');
+            } catch (err) {
+                state.auth.loggedIn = false; state.auth.role = null; state.auth.webRole = null;
+                renderLayout();
+                showToast('Đăng nhập thất bại: ' + webAuthErrMsg(err), 'error');
+            }
+        };
+        // Tao tai khoan vai tro: chi dat mat khau, email tu sinh theo quy uoc.
+        window.webCreateRoleAccount = async function () {
+            var role = (document.getElementById('web-new-role') || {}).value || '';
+            var pass = (document.getElementById('web-new-pass') || {}).value || '';
+            var owner = webOwner();
+            if ((role !== 'bcs' && role !== 'bgh') || !pass) return showToast('Cô chọn vai trò và nhập mật khẩu vai trò.', 'error');
+            if (pass.length < 6) return showToast('Mật khẩu phải từ 6 ký tự.', 'error');
+            try {
+                await webInitFirebase();
+                var cfg = webConfig();
+                var sec = window.firebase.initializeApp(cfg, 'web-admin-secondary');
+                var email = webRoleEmail(role, owner);
+                var cred = await sec.auth().createUserWithEmailAndPassword(email, pass);
+                await webMemberRef(webDb(), owner, cred.user.uid).set({ role: role, email: email, createdAt: Date.now() });
+                try { await sec.delete(); } catch (e) {}
+                showToast('Đã tạo tài khoản ' + role.toUpperCase() + ' — thành viên đăng nhập bằng tab ' + role.toUpperCase() + ' + mật khẩu này, không cần nhập email.', 'success');
+                webRefreshMembers();
+            } catch (err) {
+                if (err.code === 'auth/email-already-in-use') showToast('Vai trò này đã có tài khoản — cô dùng “Đổi mật khẩu vai trò” nếu muốn đổi.', 'error');
+                else showToast('Tạo tài khoản thất bại: ' + webAuthErrMsg(err), 'error');
+            }
+        };
+        window.webChangeRolePassword = async function () {
+            var role = (document.getElementById('web-pw-role') || {}).value || '';
+            var oldP = (document.getElementById('web-pw-old') || {}).value || '';
+            var newP = (document.getElementById('web-pw-new') || {}).value || '';
+            var owner = webOwner();
+            if ((role !== 'bcs' && role !== 'bgh') || !oldP || !newP) return showToast('Cô chọn vai trò và nhập đủ mật khẩu cũ + mới.', 'error');
+            if (newP.length < 6) return showToast('Mật khẩu mới phải từ 6 ký tự.', 'error');
+            try {
+                await webInitFirebase();
+                var cfg = webConfig();
+                var sec = window.firebase.initializeApp(cfg, 'web-admin-secondary');
+                var email = webRoleEmail(role, owner);
+                var cred = await sec.auth().signInWithEmailAndPassword(email, oldP);
+                await cred.user.updatePassword(newP);
+                try { await sec.auth().signOut(); } catch (e) {}
+                try { await sec.delete(); } catch (e) {}
+                showToast('Đã đổi mật khẩu vai trò ' + role.toUpperCase() + '.', 'success');
+            } catch (err) { showToast('Đổi mật khẩu thất bại: ' + webAuthErrMsg(err), 'error'); }
+        };
         // === END WEB MULTI-USER ===
 
 
@@ -6989,7 +7076,7 @@ window.parseExcelToDailySchedule = function(rows) {
                             <div class="text-center text-sm font-semibold text-blue-600 bg-blue-50 py-2.5 rounded-xl mb-6 border border-blue-100">
                                 Bạn đang đăng nhập với tư cách ${roleLabels[state.loginRoleSelect]}.
                             </div>
-                            ${((state.passwords || {})[state.loginRoleSelect] || '') ? '' : '<div class="text-center text-xs font-bold text-amber-600 bg-amber-50 py-2 rounded-xl mb-6 border border-amber-100">Vai trò này chưa đặt mật khẩu — bấm TRUY CẬP HỆ THỐNG để vào và đặt mật khẩu ngay.</div>'}
+                            ${((typeof isWebMode === 'function' && isWebMode()) || ((state.passwords || {})[state.loginRoleSelect] || '')) ? '' : '<div class="text-center text-xs font-bold text-amber-600 bg-amber-50 py-2 rounded-xl mb-6 border border-amber-100">Vai trò này chưa đặt mật khẩu — bấm TRUY CẬP HỆ THỐNG để vào và đặt mật khẩu ngay.</div>'}
                             
                             <!-- Input Mật khẩu -->
                             <div class="mb-6 relative">
@@ -7154,6 +7241,7 @@ window.parseExcelToDailySchedule = function(rows) {
         // (state.passwords), không còn ghi sẵn trong file app. Vai trò
         // nào chưa đặt mật khẩu thì vào thẳng và bắt đặt ngay sau đó.
         window.handleLogin = function() {
+            if (typeof isWebMode === 'function' && isWebMode()) { webRoleLogin(); return; }
             const pwd = document.getElementById('login-password').value;
             const expected = (state.passwords && state.passwords[state.loginRoleSelect]) || '';
             if (expected && pwd !== expected) {
@@ -7203,6 +7291,7 @@ window.parseExcelToDailySchedule = function(rows) {
 
         // Cổng Phụ Huynh / Học Sinh (Mật khẩu chính là mã tra cứu của học sinh)
         window.performParentLookupFromLogin = function() {
+            if (typeof isWebMode === 'function' && isWebMode()) { webParentLookup(document.getElementById('login-lookup-code').value.trim()); return; }
             const code = document.getElementById('login-lookup-code').value.trim();
             if (!code) return showToast("Vui lòng nhập mã tra cứu", "error");
             const student = state.students.find(s => s.code === code);
