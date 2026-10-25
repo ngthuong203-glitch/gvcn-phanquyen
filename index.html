@@ -133,7 +133,7 @@
 <body>
     <!-- App Mount Points -->
     <div id="app" class="flex h-screen w-full bg-slate-100"></div>
-    <div id="toast-container"></div>
+    <div id="toast-container"><div class="toast success"><i class="ph-fill ph-check-circle text-2xl drop-shadow"></i> <span>Đã đăng nhập Firebase.</span></div></div>
     <div id="timer-drawer-container"></div>
 
    <script>window.__WEB_CONFIG__={"apiKey":"AIzaSyASFf-e0Z536cDxKGVtQpoPD5wiACm2X78","authDomain":"gvbm-91096.firebaseapp.com","projectId":"gvbm-91096","storageBucket":"gvbm-91096.firebasestorage.app","messagingSenderId":"112284392779","appId":"1:112284392779:web:85f2aacbfab82eeb939cce"};window.__WEB_OWNER__="NqKF8RRVmBWXxPcAY9lzxunLdU32";window.__WEB_TEACHER_EMAIL__="ngthuong203@gmail.com";</script><script>
@@ -337,6 +337,10 @@
         }
 
 window.switchSettingsTab = function(tab) {
+    if (typeof isWebMode === 'function' && isWebMode() && state.auth && (state.auth.webRole === 'bcs' || state.auth.webRole === 'bgh')) {
+        showToast("Vai trò này không được truy cập mục đó trên bản web.", "error");
+        return;
+    }
     state.settingsTab = tab;
     renderLayout();
 };
@@ -487,6 +491,7 @@ function renderHeader() {
             }
             
                         let contentHtml = '';
+            if (typeof webClampTab === 'function') webClampTab();
             switch (state.currentTab) {
                 case 'tong-quan': contentHtml = renderViewTongQuan(); break;
                 case 'hoc-sinh': contentHtml = renderViewHocSinh(); break;
@@ -6637,6 +6642,7 @@ window.parseExcelToDailySchedule = function(rows) {
             state = parsed;
             state.auth = keepAuth;
             applyStateDefaults();
+            webClampTab();
             if (webRole === 'gvcn') {
                 try {
                     var psnap = await webClassDoc(db, owner).collection('parents').get();
@@ -6971,6 +6977,14 @@ window.parseExcelToDailySchedule = function(rows) {
                 showToast('Đã đổi mật khẩu vai trò ' + role.toUpperCase() + '.', 'success');
             } catch (err) { showToast('Đổi mật khẩu thất bại: ' + webAuthErrMsg(err), 'error'); }
         };
+        // Ep tab hien thi ve trong danh sach cho phep cua vai tro web.
+        function webClampTab() {
+            var r = webRole || (state.auth && state.auth.webRole);
+            if (typeof isWebMode === 'function' && isWebMode() && (r === 'bcs' || r === 'bgh')) {
+                var wn = WEB_NAV[r] || [];
+                if (!wn.includes(state.currentTab)) state.currentTab = wn[0];
+            }
+        }
         // === END WEB MULTI-USER ===
 
 
